@@ -32,6 +32,12 @@ SetSourceGroup(NAME "Fiber Abstraction"
 	             fiber_abstraction/nested_fiber_switch.cpp
 )
 
+SetSourceGroup(NAME "Thread Abstraction"
+	PREFIX FTL_TEST
+	SOURCE_FILES thread_abstraction/created_thread_affinity.cpp
+	             thread_abstraction/current_thread_affinity.cpp
+)
+
 SetSourceGroup(NAME "Producer Consumer"
 	PREFIX FTL_TEST
 	SOURCE_FILES producer_consumer/producer_consumer.cpp
@@ -46,6 +52,7 @@ SetSourceGroup(NAME "Triangle Number"
 # Link all the sources into one
 set(FIBER_TASKING_LIB_TESTS_SRC
 	${FTL_TEST_FIBER_ABSTRACTION}
+	${FTL_TEST_THREAD_ABSTRACTION}
 	${FTL_TEST_PRODUCER_CONSUMER}
 	${FTL_TEST_TRIANGLE_NUMBER}
 )
