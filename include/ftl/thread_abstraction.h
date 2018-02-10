@@ -138,6 +138,15 @@ inline ThreadType GetCurrentThread() {
 }
 
 /**
+* Set the thread to sleep for a duration
+*
+* @param milliseconds    The requested sleep duration
+*/
+inline void ThreadSleep(uint milliseconds) {
+	::Sleep(milliseconds);
+}
+
+/**
  * Set the core affinity for the current thread
  *
  * @param coreAffinity    The requested core affinity
@@ -319,6 +328,7 @@ inline ThreadType GetCurrentThread() {
 }
 
 #if defined(FTL_OS_LINUX)
+
 /**
 * Set the core affinity for the current thread
 *
@@ -333,7 +343,7 @@ inline void SetCurrentThreadAffinity(size_t coreAffinity) {
 }
 
 #elif defined(FTL_OS_MAC)
-	
+
 /**
  * Set the core affinity for the current thread
  *
@@ -344,9 +354,18 @@ inline void SetCurrentThreadAffinity(size_t coreAffinity) {
 	thread_port_t machThread = pthread_mach_thread_np(pthread_self());
 	thread_policy_set(machThread, THREAD_AFFINITY_POLICY, (thread_policy_t)&policyData, THREAD_AFFINITY_POLICY_COUNT);
 }
+
 #endif
-    
-    
+
+/**
+ * Set the thread to sleep for a duration
+ * 
+ * @param milliseconds    The requested sleep duration
+ */
+inline void ThreadSleep(uint milliseconds) {
+	usleep(milliseconds * 1000);
+}
+
 /**
 * Create a native event
 *
