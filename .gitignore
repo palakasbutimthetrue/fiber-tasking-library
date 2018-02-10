@@ -3,3 +3,6 @@ build*/
 
 # CLion Project files
 .idea/
+
+# OS X stuff
+.DS_Store
