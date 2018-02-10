@@ -204,6 +204,11 @@ inline void SignalEvent(EventType eventId) {
 #include <pthread.h>
 #include <unistd.h>
 
+#if defined(FTL_OS_MAC)
+#include <mach/thread_policy.h>
+#include <mach/thread_act.h>
+#endif
+
 
 namespace ftl {
 
@@ -269,9 +274,20 @@ inline bool CreateThread(uint stackSize, ThreadStartRoutine startRoutine, void *
 		CPU_ZERO(&cpuSet);
 		CPU_SET(coreAffinity, &cpuSet);
 		pthread_attr_setaffinity_np(&threadAttr, sizeof(cpu_set_t), &cpuSet);
+	
+		int success = pthread_create(returnThread, &threadAttr, startRoutine, arg);
+	
+	#elif defined(FTL_OS_MAC)
+		int success = pthread_create_suspended_np(returnThread, &threadAttr, startRoutine, arg);
+		if (success != 0) {
+			pthread_attr_destroy(&threadAttr);
+			return false;
+		}
+		thread_port_t machThread = pthread_mach_thread_np(*returnThread);
+		thread_affinity_policy_data_t policyData = { (int)coreAffinity };
+		thread_policy_set(machThread, THREAD_AFFINITY_POLICY, (thread_policy_t)&policyData, THREAD_AFFINITY_POLICY_COUNT);
+		thread_resume(machThread);
 	#endif
-
-	int success = pthread_create(returnThread, &threadAttr, startRoutine, arg);
 
 	// Cleanup
 	pthread_attr_destroy(&threadAttr);
@@ -302,22 +318,35 @@ inline ThreadType GetCurrentThread() {
 	return pthread_self();
 }
 
+#if defined(FTL_OS_LINUX)
 /**
 * Set the core affinity for the current thread
 *
 * @param coreAffinity    The requested core affinity
 */
 inline void SetCurrentThreadAffinity(size_t coreAffinity) {
-	// TODO: OSX and MinGW Thread Affinity
-	#if defined(FTL_OS_LINUX)
-		cpu_set_t cpuSet;
-		CPU_ZERO(&cpuSet);
-		CPU_SET(coreAffinity, &cpuSet);
+	cpu_set_t cpuSet;
+	CPU_ZERO(&cpuSet);
+	CPU_SET(coreAffinity, &cpuSet);
 
-		pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuSet);
-	#endif
+	pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuSet);
 }
 
+#elif defined(FTL_OS_MAC)
+	
+/**
+ * Set the core affinity for the current thread
+ *
+ * @param coreAffinity    The requested core affinity
+ */
+inline void SetCurrentThreadAffinity(size_t coreAffinity) {
+	thread_affinity_policy_data_t policyData = { (int)coreAffinity };
+	thread_port_t machThread = pthread_mach_thread_np(pthread_self());
+	thread_policy_set(machThread, THREAD_AFFINITY_POLICY, (thread_policy_t)&policyData, THREAD_AFFINITY_POLICY_COUNT);
+}
+#endif
+    
+    
 /**
 * Create a native event
 *
