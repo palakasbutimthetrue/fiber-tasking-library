@@ -67,6 +67,38 @@ FTL_THREAD_FUNC_DECL ThreadStart(void *arg) {
 #elif defined(FTL_OS_LINUX)
 
 FTL_THREAD_FUNC_DECL ThreadStart(void *arg) {
+	ThreadArgs *threadArgs = (ThreadArgs *)arg;
+
+	pthread_t currentThread = pthread_self();
+	cpu_set_t reference;
+	CPU_ZERO(&reference);
+	CPU_SET(threadArgs->Affinity, &reference);
+
+	// Do an initial check
+	cpu_set_t comparison;
+	CPU_ZERO(&comparison);
+	if (pthread_getaffinity_np(currentThread, sizeof(cpu_set_t), &comparison) != 0) {
+		threadArgs->ErrorCounter->fetch_add(1);
+		FTL_THREAD_FUNC_END;
+	}
+	if (!CPU_EQUAL(&reference, &comparison)) {
+		threadArgs->ErrorCounter->fetch_add(1);
+		FTL_THREAD_FUNC_END;
+	}
+
+	// Sleep
+	ftl::ThreadSleep(250);
+
+	// Check again
+	CPU_ZERO(&comparison);
+	if (pthread_getaffinity_np(currentThread, sizeof(cpu_set_t), &comparison) != 0) {
+		threadArgs->ErrorCounter->fetch_add(1);
+		FTL_THREAD_FUNC_END;
+	}
+	if (!CPU_EQUAL(&reference, &comparison)) {
+		threadArgs->ErrorCounter->fetch_add(1);
+	}
+
 	FTL_THREAD_FUNC_END;
 }
 

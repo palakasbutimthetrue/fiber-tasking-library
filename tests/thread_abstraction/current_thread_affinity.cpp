@@ -56,7 +56,30 @@ static void AffinityTest() {
 #elif defined(FTL_OS_LINUX)
 
 static void AffinityTest() {
+	pthread_t currentThread = pthread_self();
 
+	for (std::size_t i = 0; i < ftl::GetNumHardwareThreads(); ++i) {
+		// Initial set
+		ftl::SetCurrentThreadAffinity(i);
+		
+		cpu_set_t reference;
+		CPU_ZERO(&reference);
+		CPU_SET(i, &reference);
+
+		// Do an initial check
+		cpu_set_t comparison;
+		CPU_ZERO(&comparison);
+		ASSERT_EQ(pthread_getaffinity_np(currentThread, sizeof(cpu_set_t), &comparison), 0);
+		ASSERT_TRUE(CPU_EQUAL(&reference, &comparison));
+
+		// Sleep
+		ftl::ThreadSleep(250);
+
+		// Check again
+		CPU_ZERO(&comparison);
+		ASSERT_EQ(pthread_getaffinity_np(currentThread, sizeof(cpu_set_t), &comparison), 0);
+		ASSERT_TRUE(CPU_EQUAL(&reference, &comparison));
+	}
 }
 
 #elif defined(FTL_OS_MAC) || defined(FTL_OS_iOS)
