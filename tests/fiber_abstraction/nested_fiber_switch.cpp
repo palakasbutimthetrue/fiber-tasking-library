@@ -25,9 +25,9 @@
 #include "ftl/fiber.h"
 #include "ftl/typedefs.h"
 
-#include <atomic>
+#include "gtest/gtest.h"
 
-#include <gtest/gtest.h>
+#include <atomic>
 
 
 struct MultipleFiberArg {

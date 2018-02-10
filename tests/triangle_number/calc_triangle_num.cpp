@@ -25,7 +25,7 @@
 #include "ftl/atomic_counter.h"
 #include "ftl/task_scheduler.h"
 
-#include <gtest/gtest.h>
+#include "gtest/gtest.h"
 
 
 struct NumberSubset {
