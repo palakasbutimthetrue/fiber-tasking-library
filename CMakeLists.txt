@@ -41,11 +41,6 @@ if (FTL_FIBER_STACK_GUARD_PAGES)
 	add_definitions(-DFTL_FIBER_STACK_GUARD_PAGES=1)
 endif()
 
-# CTest needs to be included as soon as possible
-if (FTL_BUILD_TESTS)
-	include(CTest)
-endif()
-
 set(CMAKE_CXX_STANDARD 11) # C++11...
 set(CMAKE_CXX_STANDARD_REQUIRED ON) #...is required...
 set(CMAKE_CXX_EXTENSIONS OFF) #...without compiler extensions like gnu++11

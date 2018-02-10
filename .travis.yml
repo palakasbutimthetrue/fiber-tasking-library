@@ -13,7 +13,7 @@ script:
     - cd build
     - cmake -DFTL_FIBER_STACK_GUARD_PAGES=1 ../
     - make
-    - make test
+    - ./tests/ftl-test
 
 matrix:
   include:
