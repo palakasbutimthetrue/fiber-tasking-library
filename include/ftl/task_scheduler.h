@@ -33,6 +33,7 @@
 #include <atomic>
 #include <climits>
 #include <condition_variable>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <vector>
@@ -41,6 +42,12 @@
 namespace ftl {
 
 class AtomicCounter;
+
+class TaskScheduler;
+
+using ArgumentExtractorType = std::function<void(TaskScheduler*)>;
+
+void ArgumentExtractor(TaskScheduler* scheduler, void* arg);
 
 enum class EmptyQueueBehavior {
 	// Spin in a loop, actively searching for tasks
@@ -187,31 +194,70 @@ public:
 	 *
 	 * NOTE: Run will "block" until 'mainTask' returns. However, it doesn't block in the traditional sense; 'mainTask' is created as a Fiber.
 	 * Therefore, the current thread will save it's current state, and then switch execution to the the 'mainTask' fiber. When 'mainTask'
-	 * finishes, the thread will switch back to the saved state, and Run() will return.
+	 * finishes, the thread will switch back to the saved state, and RunWithTaskPointer() will return.
 	 *
 	 * @param fiberPoolSize     The size of the fiber pool. The fiber pool is used to run new tasks when the current task is waiting on a counter
 	 * @param mainTask          The main task to run
 	 * @param mainTaskArg       The argument to pass to 'mainTask'
 	 * @param threadPoolSize    The size of the thread pool to run. 0 corresponds to NumHardwareThreads()
 	 */
-	void Run(uint fiberPoolSize, TaskFunction mainTask, void *mainTaskArg = nullptr, uint threadPoolSize = 0, EmptyQueueBehavior behavior = EmptyQueueBehavior::Spin);
+	void RunWithTaskPointer(uint fiberPoolSize, TaskFunction mainTask, void *mainTaskArg = nullptr, uint threadPoolSize = 0, EmptyQueueBehavior behavior = EmptyQueueBehavior::Spin);
+
+	/**
+	 * @brief Initializes the TaskScheduler and then starts executing 'mainTask'
+	 *
+	 * NOTE: Run will "block" until 'mainTask' returns. However, it doesn't block in the traditional sense; 'mainTask' is created as a Fiber.
+	 * Therefore, the current thread will save it's current state, and then switch execution to the the 'mainTask' fiber. When 'mainTask'
+	 * finishes, the thread will switch back to the saved state, and RunWithTaskPointer() will return.
+	 *
+	 * @tparam F                Function type.
+	 * @tparam Args             Arguments to the function. Copied if lvalue. Moved if rvalue. Use std::ref/std::cref for references.
+	 * @param fiberPoolSize     The size of the fiber pool. The fiber pool is used to run new tasks when the current task is waiting on a counter
+	 * @param threadPoolSize    The size of the thread pool to run. 0 corresponds to NumHardwareThreads()
+	 * @param function          Function that should be invoked.
+	 * @param args              Arguments to the function. Copied if lvalue. Moved if rvalue. Use std::ref/std::cref for references.
+	 */
+	template<class F, class... Args>
+	void Run(uint fiberPoolSize, uint threadPoolSize, EmptyQueueBehavior behavior, F&& function, Args&&... args) {
+		auto bound_func = std::bind(function, std::placeholders::_1, std::forward<Args>(args)...);
+		auto* alloced_function = new ArgumentExtractorType(bound_func);
+
+		RunWithTaskPointer(fiberPoolSize, ArgumentExtractor, alloced_function, threadPoolSize, behavior);
+	}
 
 	/**
 	 * Adds a task to the internal queue.
 	 *
 	 * @param task       The task to queue
-	 * @param counter    An atomic counter corresponding to this task. Initially it will be set to 1. When the task completes, it will be decremented.
+	 * @param counter    An atomic counter corresponding to this task. Initially it will be set to 1. When the task completes, it will be decremented. May be null.
 	 */
-	void AddTask(Task task, AtomicCounter *counter = nullptr);
+	void AddTaskWithTaskPointer(Task task, AtomicCounter *counter = nullptr);
 	/**
 	 * Adds a group of tasks to the internal queue
 	 *
 	 * @param numTasks    The number of tasks
 	 * @param tasks       The tasks to queue
-	 * @param counter     An atomic counter corresponding to the task group as a whole. Initially it will be set to numTasks. When each task completes, it will be decremented.
+	 * @param counter     An atomic counter corresponding to the task group as a whole. Initially it will be set to numTasks. When each task completes, it will be decremented. May be null.
 	 */
-	void AddTasks(uint numTasks, Task *tasks, AtomicCounter *counter = nullptr);
+	void AddTasksWithTaskPointers(uint numTasks, Task *tasks, AtomicCounter *counter = nullptr);
 
+	/**
+	 * Adds a task to the internal queue. Allocates internally. If you want a non-allocating version, look at AddTaskWithTaskPointer/AddTasksWithTaskPointers
+	 * 
+	 * @tparam F       Funciton type.
+	 * @tparam Args    Arguments to the function. Copied if lvalue. Moved if rvalue. Use std::ref/std::cref for references.
+	 * @param counter  An atomic counter corresponding to this task. Initially it will be set to 1. When the task completes, it will be decremented. May be null.
+	 * @param function Function to invoke
+	 * @param args     Arguments to the function. Copied if lvalue. Moved if rvalue. Use std::ref/std::cref for references.
+	 */
+	template<class F, class... Args>
+	void AddTask(AtomicCounter* counter, F&& function, Args&&... args) {
+		auto bound_func = std::bind(function, std::placeholders::_1, std::forward<Args>(args)...);
+		auto* alloced_function = new ArgumentExtractorType(bound_func);
+
+		AddTaskWithTaskPointer(Task{ArgumentExtractor, alloced_function}, counter);
+	}
+		
 	/**
 	 * Yields execution to another task until counter == value
 	 *
