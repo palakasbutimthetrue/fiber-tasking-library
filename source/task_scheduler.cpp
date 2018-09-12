@@ -39,6 +39,14 @@ struct ThreadStartArgs {
 	uint threadIndex;
 };
 
+void ArgumentExtractor(TaskScheduler* scheduler, void* arg) {
+	auto* func = static_cast<ArgumentExtractorType*>(arg);
+
+	(*func)(scheduler);
+
+	delete func;
+}
+
 FTL_THREAD_FUNC_RETURN_TYPE TaskScheduler::ThreadStart(void *arg) {
 	ThreadStartArgs *threadArgs = reinterpret_cast<ThreadStartArgs *>(arg);
 	TaskScheduler *taskScheduler = threadArgs->taskScheduler;
@@ -238,7 +246,7 @@ TaskScheduler::~TaskScheduler() {
 	delete[] m_tls;
 }
 
-void TaskScheduler::Run(uint fiberPoolSize, TaskFunction mainTask, void *mainTaskArg, uint threadPoolSize, EmptyQueueBehavior behavior) {
+void TaskScheduler::RunWithTaskPointer(uint fiberPoolSize, TaskFunction mainTask, void *mainTaskArg, uint threadPoolSize, EmptyQueueBehavior behavior) {
 	// Initialize the flags
 	m_initialized.store(false, std::memory_order::memory_order_release);
 	m_quit.store(false, std::memory_order_release);
@@ -326,9 +334,9 @@ void TaskScheduler::Run(uint fiberPoolSize, TaskFunction mainTask, void *mainTas
 	return;
 }
 
-void TaskScheduler::AddTask(Task task, AtomicCounter *counter) {
+void TaskScheduler::AddTaskWithTaskPointer(Task task, AtomicCounter *counter) {
 	if (counter != nullptr) {
-		counter->Store(1);
+		counter->FetchAdd(1);
 	}
 
 	const TaskBundle bundle = {task, counter};
@@ -349,9 +357,9 @@ void TaskScheduler::AddTask(Task task, AtomicCounter *counter) {
 	}
 }
 
-void TaskScheduler::AddTasks(uint numTasks, Task *tasks, AtomicCounter *counter) {
+void TaskScheduler::AddTasksWithTaskPointers(uint numTasks, Task *tasks, AtomicCounter *counter) {
 	if (counter != nullptr) {
-		counter->Store(numTasks);
+		counter->FetchAdd(numTasks);
 	}
 
 	ThreadLocalStorage &tls = m_tls[GetCurrentThreadIndex()];
