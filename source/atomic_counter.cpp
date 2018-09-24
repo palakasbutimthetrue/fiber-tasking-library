@@ -139,6 +139,7 @@ void AtomicCounter::CheckWaitingFibers(uint value) {
 	if (nextIndex > 0) {
 		while (m_lock.load() > 0) {
 			// Spin
+			FTL_PAUSE();
 		}
 
 		for (uint i = 0; i < nextIndex; ++i) {
