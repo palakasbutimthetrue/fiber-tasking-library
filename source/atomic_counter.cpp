@@ -53,7 +53,7 @@ AtomicCounter::WaitingFiberBundle::WaitingFiberBundle()
 		  FiberIndex(0),
 		  TargetValue(0),
 		  FiberStoredFlag(nullptr),
-		  PinnedThreadIndex(0) {
+		  PinnedThreadIndex(std::numeric_limits<std::size_t>::max()) {
 	FTL_VALGRIND_HG_DISABLE_CHECKING(&InUse, sizeof(InUse));
 }
 
@@ -139,6 +139,7 @@ void AtomicCounter::CheckWaitingFibers(uint value) {
 	if (nextIndex > 0) {
 		while (m_lock.load() > 0) {
 			// Spin
+			FTL_PAUSE();
 		}
 
 		for (uint i = 0; i < nextIndex; ++i) {

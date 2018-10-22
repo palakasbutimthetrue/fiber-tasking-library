@@ -58,6 +58,7 @@ FTL_THREAD_FUNC_RETURN_TYPE TaskScheduler::ThreadStart(void *arg) {
 	// Spin wait until everything is initialized
 	while (!taskScheduler->m_initialized.load(std::memory_order_acquire)) {
 		// Spin
+		FTL_PAUSE();
 	}
 
 
@@ -128,6 +129,7 @@ void TaskScheduler::FiberStart(void *arg) {
 		// Lock
 		while (tls.ReadFibersLock.test_and_set(std::memory_order_acquire)) {
 			// Spin
+			FTL_PAUSE();
 		}
 
 		for (auto iter = tls.ReadyFibers.begin(); iter != tls.ReadyFibers.end(); ++iter) {
@@ -193,6 +195,7 @@ void TaskScheduler::FiberStart(void *arg) {
 					// Lock
 					while (tls.ReadFibersLock.test_and_set(std::memory_order_acquire)) {
 						// Spin
+						FTL_PAUSE();
 					}
 					// Prevent sleepy-time if we have ready fibers
 					if (tls.ReadyFibers.empty()) {
@@ -281,6 +284,11 @@ void TaskScheduler::RunWithTaskPointer(uint fiberPoolSize, TaskFunction mainTask
 	// Set the properties for the current thread
 	SetCurrentThreadAffinity(0);
 	m_threads[0] = GetCurrentThread();
+	#if defined(FTL_WIN32_THREADS)
+		// Set the thread handle to INVALID_HANDLE_VALUE
+		// So we don't incorrectly try to reference it from another thread
+		m_threads[0].Handle = INVALID_HANDLE_VALUE;
+	#endif
 
 	// Create the remaining threads
 	for (uint i = 1; i < m_numThreads; ++i) {
@@ -528,6 +536,7 @@ void TaskScheduler::AddReadyFiber(std::size_t pinnedThreadIndex, std::size_t fib
 	// Lock
 	while (tls->ReadFibersLock.test_and_set(std::memory_order_acquire)) {
 		// Spin
+		FTL_PAUSE();
 	}
 
 	tls->ReadyFibers.emplace_back(fiberIndex, fiberStoredFlag);
